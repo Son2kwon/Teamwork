@@ -1,4 +1,5 @@
-﻿#include <bangtal>
+﻿#define _CRT_SECURE_NO_WARNINGS
+#include <bangtal>
 using namespace bangtal;
 #include <stdio.h>
 #include <stdlib.h>
@@ -17,9 +18,12 @@ ObjectID start_button, end_button; //스타트 버튼, 엔드 버튼
 ObjectID bar;	//거리 바 오브젝트 정의
 ObjectID barCh;	//바를 움직이는 캐릭터 정의
 
-int coin_silverX[4], coin_silverY[4]; //은색 코인 선언, 장애물 위에 배치할 것이므로 장애물과 마찬가지로 배열로 선언
-int coin_goldX[4], coin_goldY[4]; //금색 코인 선언, 은색 코인과 마찬가지
+int coin[4]; //코인 선언, 장애물 위에 배치할 것이므로 장애물과 마찬가지로 배열로 선언
+int coin_Y[4]; // 코인의 Y좌표 선언
 int coin_count; //점수
+char buf[30]; //점수를 표현해주기 위한 함수
+
+bool ended = false; // 게임이 끝나지 않았음 = 기본값
 
 double barCh_x = 320;	//바를 움직이는 캐릭터의 초기 좌표 정의
 
@@ -60,22 +64,15 @@ ObjectID createObject(const char* name, const char* image, SceneID scene, int x,
 }
 
 //캐릭터가 코인에 부딪혔는지 체크하는 함수.
-//부딪히면 코인이 사라지면서 점수가 증가
+//부딪히면 코인이 사라지면서 점수가 5 증가
 void CoinCheck() {
 	for (int j = 0; j < 4; j++) {
-		//x좌표가 coin의 x좌표보다 크고 y좌표가 coin의 y좌표보다 크면 (즉, 타이밍에 맞게 점프하면 -> 아직 수정 못함. 수정해야해!)
-
-		if (x >= coin_silverX[j] && y >= coin_silverY[j]) {
-			hideObject(silver[j]);
-			coin_count += 1;
-		}
-
-		if (x >= coin_goldX[j] && y >= coin_goldY[j]) {
-			hideObject(gold[j]);
-			coin_count += 10;
+		//x좌표가 coin의 x좌표(=ob_x)보다 크고 y좌표가 coin의 y좌표보다 크면 (즉, 타이밍에 맞게 점프하면 -> 아직 수정 못함. 수정해야해!)
+		if (x >= ob_x[j] && y >= coin_Y[j]) {
+			hideObject(coin[j]);
+			coin_count += 5;
 		}
 	}
-
 }
 
 void keyboardCallback(KeyCode code, KeyState state)	//점프키 이중점프를 위해 점프키:릴리즈 상태->타이머에서 처리
@@ -87,18 +84,21 @@ void keyboardCallback(KeyCode code, KeyState state)	//점프키 이중점프를 
 		stopTimer(timerRelease);	//이전에 실행된 타이머 취소
 		setTimer(timerRelease, DELAY_TIME);	//점프키 릴리즈 타이머 다시 실행
 		startTimer(timerRelease);	//타이머 시작
-	}
+		}
 }
 
 void mouseCallback(ObjectID object, int x, int y, MouseAction action)
 {
 	if (object == start_button) { //시작 버튼을 누르면 타이머 시작
+		coin_count = 0; // 점수 초기화
+		ended = false; // 게임이 끝나지 않음 초기화
 		enterScene(main_scene);
 		for (int i = 0; i < 4; i++) {
 			setObjectImage(ob[i], "images\\ob_low.png");
 			ob_check[i] = 1;
 			ob_x[i] = 500 + 500 * i;
 			locateObject(ob[i], main_scene, ob_x[i], 50);
+			locateObject(coin[i], main_scene, ob_x[i], 200);
 		}
 		barCh_x = 320;
 		locateObject(barCh, main_scene, barCh_x, 680);
@@ -135,11 +135,8 @@ void timerCallback(TimerID timer)
 			hideObject(ob[i]);//필요없을지도
 			if (ob_x[i] >= -100) {
 				ob_x[i] -= speed;
-				coin_silverX[i] -= speed;
-				coin_goldX[i] -= speed;
 				locateObject(ob[i], main_scene, ob_x[i], 50);
-				locateObject(silver[i], main_scene, coin_silverX[i], coin_silverY[i]);
-				locateObject(gold[i], main_scene, coin_goldX[i], coin_goldY[i]);
+				locateObject(coin[i], main_scene, ob_x[i], coin_Y[i]);
 				showObject(ob[i]);//필요없을지도
 			}
 			else if (ob_x[i] < -100) {
@@ -147,44 +144,49 @@ void timerCallback(TimerID timer)
 					ob_x[i] = 1800;
 					int n = rand() % 2;
 					switch (n) {
-					case 0: setObjectImage(ob[i], "images\\ob_low.png"); ob_check[i] = 1; break;
-					case 1: setObjectImage(ob[i], "images\\ob_high.png"); ob_check[i] = 2; break;
+					case 0: setObjectImage(ob[i], "images\\ob_low.png"); ob_check[i] = 1; coin_Y[i] = 200; break;
+					case 1: setObjectImage(ob[i], "images\\ob_high.png"); ob_check[i] = 2; coin_Y[i] = 350; break;
 					}
 					locateObject(ob[i], main_scene, ob_x[i], 50);
+					locateObject(coin[i], main_scene, ob_x[i], coin_Y[i]);
 					showObject(ob[i]);
-
+					showObject(coin[i]);
 				}
 
 
 				else if (i == 1) {
 					int n = rand() % 2;
 					switch (n) {
-					case 0: ob_x[i] = ob_x[0] + 400 + ob_dx, setObjectImage(ob[i], "images\\ob_low.png"); ob_check[i] = 1; break;
-					case 1: ob_x[i] = ob_x[0] + 500 + ob_dx, setObjectImage(ob[i], "images\\ob_high.png"); ob_check[i] = 2; break;
+					case 0: ob_x[i] = ob_x[0] + 400 + ob_dx, setObjectImage(ob[i], "images\\ob_low.png"); coin_Y[i] = 200; ob_check[i] = 1; break;
+					case 1: ob_x[i] = ob_x[0] + 500 + ob_dx, setObjectImage(ob[i], "images\\ob_high.png"); coin_Y[i] = 350;  ob_check[i] = 2; break;
 					}
 					locateObject(ob[i], main_scene, ob_x[i], 50);
+					locateObject(coin[i], main_scene, ob_x[i], coin_Y[i]);
 					showObject(ob[i]);
+					showObject(coin[i]);
 				}
 
 				else if (i == 2) {
 					int n = rand() % 2;
 					switch (n) {
-					case 0: ob_x[i] = ob_x[1] + 400 + ob_dx, setObjectImage(ob[i], "images\\ob_low.png"); ob_check[i] = 1; break;
-					case 1: ob_x[i] = ob_x[1] + 500 + ob_dx, setObjectImage(ob[i], "images\\ob_high.png"); ob_check[i] = 2; break;
+					case 0: ob_x[i] = ob_x[1] + 400 + ob_dx, setObjectImage(ob[i], "images\\ob_low.png"); coin_Y[i] = 200;  ob_check[i] = 1; break;
+					case 1: ob_x[i] = ob_x[1] + 500 + ob_dx, setObjectImage(ob[i], "images\\ob_high.png"); coin_Y[i] = 350; ob_check[i] = 2; break;
 					}
 					locateObject(ob[i], main_scene, ob_x[i], 50);
+					locateObject(coin[i], main_scene, ob_x[i], coin_Y[i]);
 					showObject(ob[i]);
-
+					showObject(coin[i]);
 				}
 				else if (i == 3) {
 					int n = rand() % 2;
 					switch (n) {
-					case 0: ob_x[i] = ob_x[2] + 400 + ob_dx, setObjectImage(ob[i], "images\\ob_low.png"); ob_check[i] = 1; break;
-					case 1: ob_x[i] = ob_x[2] + 500 + ob_dx, setObjectImage(ob[i], "images\\ob_high.png"); ob_check[i] = 2; break;
+					case 0: ob_x[i] = ob_x[2] + 400 + ob_dx, setObjectImage(ob[i], "images\\ob_low.png"); coin_Y[i] = 200; ob_check[i] = 1; break;
+					case 1: ob_x[i] = ob_x[2] + 500 + ob_dx, setObjectImage(ob[i], "images\\ob_high.png"); coin_Y[i] = 350; ob_check[i] = 2; break;
 					}
 					locateObject(ob[i], main_scene, ob_x[i], 50);
+					locateObject(coin[i], main_scene, ob_x[i], coin_Y[i]);
 					showObject(ob[i]);
-
+					showObject(coin[i]);
 				}
 			}
 
@@ -196,23 +198,29 @@ void timerCallback(TimerID timer)
 		if (speed <= 50) {
 			ob_dx += 0.2;
 			speed += 0.2;
-
-
 		}
 		setTimer(ob_speed_timer, 5.0f);
 		startTimer(ob_speed_timer);
 	}
 
 	if (timer == check_timer) {   //0.01초마다 충돌 확인, check number를 이용해서 장애물의 이미지를 구분, 쿠키 점프할 때 중간 위치변경이 없어서 y = 50, 200을 기준으로 충돌 확인함.
+		
+		if (y == 50 + ANIMATION_STEP or y == 50 + ANIMATION_STEP * 2) {
+			CoinCheck();
+		}
 
 		for (int i = 0; i < 4; i++) {
 			if (ob_x[i] < 271 && ob_x[i]> 94) {
 				if (ob_check[i] == 1) {  // 낮은 장애물의 경우
 					if (y == 50) {
+						ended = true;
 						enterScene(start_scene); //장애물과 닿으면 다시 초기 화면으로
 						stopTimer(ob_speed_timer);
 						stopTimer(ob_timer);
 						speed = 5;
+
+						sprintf(buf, "Score : %d", coin_count);
+						showMessage(buf);
 
 						stopTimer(check_timer);
 					}
@@ -222,21 +230,28 @@ void timerCallback(TimerID timer)
 				}
 				else if (ob_check[i] == 2) {
 					if (y == 50 || y == 200) {  //높은 장애물의 경우
+						ended = true;
 						enterScene(start_scene); //장애물과 닿으면 다시 초기 화면으로
 						stopTimer(ob_speed_timer);
 						stopTimer(ob_timer);
 						speed = 5;
+
+						char buf[30];
+						sprintf(buf, "Score : %d", coin_count);
+						showMessage(buf);
 
 						stopTimer(check_timer);
 					}
 				}
 			}
 		}
+
+		if (ended == false) { // 게임이 끝나지 않았으면 타이머 실행, 끝났으면 타이머 실행 X
 		setTimer(check_timer, 0.01f);
 		startTimer(check_timer);
+		}
 	}
 }
-
 
 int main() {
 	//setGameOption(GameOption::GAME_OPTION_ROOM_TITLE, false);
@@ -253,18 +268,14 @@ int main() {
 
 	cat = createObject("cat", "images\\cat.png", main_scene, x, y, true);
 
+
 	for (int i = 0; i < 4; i++) {
 		ob_x[i] = 500 + 500 * i;
-		coin_silverX[i] = 500 + 500 * i;
-		coin_silverY[i] = 200;
-		coin_goldX[i] = 500 + 500 * i;
-		coin_goldY[i] = 200;
+		coin_Y[i] = 200;
 		ob[i] = createObject("ob_block", "images\\ob_low.png", main_scene, ob_x[i], 0, true);
 		ob_check[i] = 1;
-		silver[i] = createObject("silver", "images\\silver.png", main_scene, coin_silverX[i], coin_silverY[i], true);
-		scaleObject(silver[i], .25f);
-		gold[i] = createObject("gold", "images\\gold.png", main_scene, coin_goldX[i], coin_goldY[i], true);
-		scaleObject(gold[i], .25f);
+		coin[i] = createObject("coin", "images\\silver.png", main_scene, ob_x[i], coin_Y[i], true);
+		scaleObject(coin[i], .25f);
 	}
 
 	start_button = createObject("start_button", "images\\start_button.png", start_scene, 590, 50, true);
@@ -273,8 +284,6 @@ int main() {
 	bar = createObject("bar", "images\\bar.png", main_scene, 320, 680, true);	//바
 	barCh = createObject("barCh", "images\\cat.png", main_scene, 320, 680, true);	//바를 움직이는 캐릭터
 	scaleObject(barCh, 0.25f);
-
-	CoinCheck();
 
 	ob_speed_timer = createTimer(5.0f);
 	ob_timer = createTimer(0.01f);
